@@ -1,7 +1,10 @@
 using DriveNow.Components;
 
 var builder = WebApplication.CreateBuilder(args);
-
+var apiBaseAddress = new Uri("https://egolance.com/api/");
+builder.Services.AddHttpClient<DriveNow.Services.CarService>(c => c.BaseAddress = apiBaseAddress);
+builder.Services.AddHttpClient<DriveNow.Services.BookingService>(c => c.BaseAddress = apiBaseAddress);
+builder.Services.AddHttpClient<DriveNow.Services.LocationService>(c => c.BaseAddress = apiBaseAddress);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

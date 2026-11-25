@@ -1,7 +1,41 @@
 ﻿@page "/"
+@inject CarService CarService
+@inject BookingService BookingService
+@inject LocationService LocationService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>DriveNow</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>API test</h1>
 
-Welcome to your new app.
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <ul>
+        <li>Cars: @carsText</li>
+        <li>Bookings: @bookingsText</li>
+        <li>Locations: @locationsText</li>
+    </ul>
+}
+
+@code {
+    private bool loading = true;
+    private string carsText = "";
+    private string bookingsText = "";
+    private string locationsText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cars = await CarService.GetAllAsync();
+        var bookings = await BookingService.GetAllAsync();
+        var locations = await LocationService.GetAllAsync();
+
+        carsText = cars.Success ? $"{cars.Data!.Count} loaded" : cars.ErrorMessage!;
+        bookingsText = bookings.Success ? $"{bookings.Data!.Count} loaded" : bookings.ErrorMessage!;
+        locationsText = locations.Success ? $"{locations.Data!.Count} loaded" : locations.ErrorMessage!;
+
+        loading = false;
+    }
+}
