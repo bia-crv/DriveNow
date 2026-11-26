@@ -3,8 +3,14 @@
 
 <AuthorizeView>
     <Authorized>
-        <span class="me-3">Hi, @context.User.FindFirst("DisplayName")?.Value</span>
-        <button class="btn btn-sm btn-outline-dark" @onclick="LogoutAsync">Logout</button>
+        @{
+            var name = context.User.FindFirst("DisplayName")?.Value ?? "User";
+        }
+        <span class="dn-avatar" title="@name">@(name.Substring(0, 1).ToUpper())</span>
+        <span class="dn-username d-none d-lg-inline">@name</span>
+        <button type="button" class="dn-icon-btn" title="Logout" aria-label="Logout" @onclick="LogoutAsync">
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
     </Authorized>
 </AuthorizeView>
 

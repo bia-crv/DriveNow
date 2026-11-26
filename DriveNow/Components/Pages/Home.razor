@@ -1,41 +1,161 @@
 ﻿@page "/"
-@inject CarService CarService
-@inject BookingService BookingService
-@inject LocationService LocationService
+@inject FleetStateService Fleet
+@implements IDisposable
 
-<PageTitle>DriveNow</PageTitle>
+<PageTitle>Dashboard · DriveNow</PageTitle>
 
-<h1>API test</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="dn-page-title">@Greeting, @userName</h1>
+        <p class="dn-muted mb-0">Here's your fleet today</p>
+    </div>
+    <button class="btn btn-dn-outline" @onclick="RefreshAsync" disabled="@isRefreshing">
+        <i class="bi bi-arrow-clockwise me-1 @(isRefreshing ? "dn-spin" : "")"></i> Refresh
+    </button>
+</div>
 
-@if (loading)
+<AppAlert Message="@Fleet.ErrorMessage" Type="warning" OnDismiss="Fleet.ClearError" />
+
+@if (!Fleet.IsLoaded)
 {
-    <p>Loading...</p>
+    <LoadingSpinner Text="Loading dashboard..." />
 }
 else
 {
-    <ul>
-        <li>Cars: @carsText</li>
-        <li>Bookings: @bookingsText</li>
-        <li>Locations: @locationsText</li>
-    </ul>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <DashboardCard Title="Total cars" Value="@Fleet.Cars.Count.ToString()" Icon="bi-car-front" Dark="true" />
+        </div>
+        <div class="col-6 col-lg-3">
+            <DashboardCard Title="Available cars" Value="@Fleet.AvailableCarsCount.ToString()" Icon="bi-check-circle" />
+        </div>
+        <div class="col-6 col-lg-3">
+            <DashboardCard Title="Active bookings" Value="@Fleet.ActiveBookingsCount.ToString()" Icon="bi-calendar-event" />
+        </div>
+        <div class="col-6 col-lg-3">
+            <DashboardCard Title="Locations" Value="@Fleet.Locations.Count.ToString()" Icon="bi-geo-alt" />
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="dn-card dn-panel">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="dn-panel-title mb-0">Active and upcoming bookings</div>
+                    <a href="bookings" class="dn-link">View all</a>
+                </div>
+
+                @if (upcoming.Count == 0)
+                {
+                    <EmptyState Icon="bi-calendar-x" Title="No upcoming bookings" Message="New bookings will show up here." />
+                }
+                else
+                {
+                    <div class="dn-list">
+                        @foreach (var booking in upcoming)
+                        {
+                            var active = Fleet.IsBookingActive(booking);
+                            <div class="dn-list-item">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="dn-initials @(active ? "dn-initials-active" : "")">@Initials(booking.CustomerName)</span>
+                                    <div>
+                                        <div class="fw-semibold">@booking.CustomerName.Trim()</div>
+                                        <div class="dn-muted small">@CarName(booking.CarId)</div>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="dn-muted small">@booking.PickupDate.ToString("dd MMM") – @booking.ReturnDate.ToString("dd MMM")</div>
+                                    <span class="dn-badge @(active ? "dn-badge-success" : "dn-badge-muted")">@(active ? "Active" : "Upcoming")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="dn-card dn-panel">
+                <div class="dn-panel-title">Fleet availability</div>
+                <div class="dn-progress" role="progressbar" aria-label="Available cars" aria-valuenow="@availablePercent" aria-valuemin="0" aria-valuemax="100">
+                    <div class="dn-progress-bar" style="width: @availablePercent%"></div>
+                </div>
+                <div class="d-flex justify-content-between dn-muted small mt-2">
+                    <span>@Fleet.AvailableCarsCount available</span>
+                    <span>@(Fleet.Cars.Count - Fleet.AvailableCarsCount) unavailable</span>
+                </div>
+                <p class="dn-muted small mt-3 mb-3">Last updated at @Fleet.LastUpdated?.ToString("HH:mm")</p>
+                <a href="cars" class="btn btn-dn-outline">View all cars <i class="bi bi-arrow-right ms-1"></i></a>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
-    private bool loading = true;
-    private string carsText = "";
-    private string bookingsText = "";
-    private string locationsText = "";
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string userName = "there";
+    private bool isRefreshing;
+    private List<Booking> upcoming = new();
+    private int availablePercent;
+
+    private string Greeting => DateTime.Now.Hour switch
+    {
+        < 12 => "Good morning",
+        < 18 => "Good afternoon",
+        _ => "Good evening"
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        var cars = await CarService.GetAllAsync();
-        var bookings = await BookingService.GetAllAsync();
-        var locations = await LocationService.GetAllAsync();
+        Fleet.OnChange += HandleFleetChanged;
 
-        carsText = cars.Success ? $"{cars.Data!.Count} loaded" : cars.ErrorMessage!;
-        bookingsText = bookings.Success ? $"{bookings.Data!.Count} loaded" : bookings.ErrorMessage!;
-        locationsText = locations.Success ? $"{locations.Data!.Count} loaded" : locations.ErrorMessage!;
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            userName = state.User.FindFirst("DisplayName")?.Value ?? "there";
+        }
 
-        loading = false;
+        await Fleet.LoadAsync();
+        BuildView();
     }
+
+    private async Task RefreshAsync()
+    {
+        isRefreshing = true;
+        await Fleet.LoadAsync(force: true);
+        isRefreshing = false;
+    }
+
+    private void HandleFleetChanged()
+    {
+        BuildView();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void BuildView()
+    {
+        var now = DateTime.Now;
+
+        upcoming = Fleet.Bookings
+            .Where(b => b.ReturnDate > now)
+            .OrderBy(b => b.PickupDate)
+            .Take(5)
+            .ToList();
+
+        availablePercent = Fleet.Cars.Count == 0
+            ? 0
+            : (int)Math.Round(100.0 * Fleet.AvailableCarsCount / Fleet.Cars.Count);
+    }
+
+    private string CarName(int carId) => Fleet.FindCar(carId)?.DisplayName ?? $"Car #{carId}";
+
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(p => char.ToUpper(p[0])));
+    }
+
+    public void Dispose() => Fleet.OnChange -= HandleFleetChanged;
 }

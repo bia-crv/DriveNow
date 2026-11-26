@@ -1,29 +1,61 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">DriveNow</a>
+﻿@inject NavigationManager Nav
+@implements IDisposable
+
+<nav class="navbar navbar-expand-md dn-navbar">
+    <div class="container-xl">
+        <a class="dn-logo" href="">
+            <span class="dn-logo-mark"><i class="bi bi-lightning-charge-fill"></i></span>
+            DRIVENOW
+        </a>
+
+        <button class="navbar-toggler dn-toggler" type="button" aria-label="Toggle navigation" @onclick="ToggleMenu">
+            <i class="bi @(menuOpen ? "bi-x-lg" : "bi-list")"></i>
+        </button>
+
+        <div class="collapse navbar-collapse @(menuOpen ? "show" : "")">
+            <ul class="navbar-nav mx-auto gap-md-1">
+                <li class="nav-item">
+                    <NavLink class="nav-link dn-nav-link" href="" Match="NavLinkMatch.All">
+                        <i class="bi bi-grid me-2"></i>Dashboard
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link dn-nav-link" href="cars">
+                        <i class="bi bi-car-front me-2"></i>Cars
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link dn-nav-link" href="bookings">
+                        <i class="bi bi-calendar-check me-2"></i>Bookings
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link dn-nav-link" href="locations">
+                        <i class="bi bi-geo-alt me-2"></i>Locations
+                    </NavLink>
+                </li>
+            </ul>
+
+            <div class="d-flex align-items-center gap-2 mt-3 mt-md-0">
+                <ThemeToggle />
+                <LoginDisplay />
+            </div>
+        </div>
     </div>
-</div>
+</nav>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler"/>
+@code {
+    private bool menuOpen;
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    private void ToggleMenu() => menuOpen = !menuOpen;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        menuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

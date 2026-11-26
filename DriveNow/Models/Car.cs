@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-
+using System.Text.Json.Serialization;
 namespace DriveNow.Models;
 
 public class Car
@@ -29,4 +29,7 @@ public class Car
     [Required(ErrorMessage = "Fuel type is required.")]
     [StringLength(20, ErrorMessage = "Fuel type cannot exceed 20 characters.")]
     public string FuelType { get; set; } = "Petrol";
+    
+    [JsonIgnore]
+    public string DisplayName => $"{Make.Trim()} {Model.Trim()}";
 }

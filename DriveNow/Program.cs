@@ -19,7 +19,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<DriveNow.Services.ThemeService>();
-
+builder.Services.AddScoped<DriveNow.Services.FleetStateService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
