@@ -1,0 +1,125 @@
+@page "/login"
+@layout LoginLayout
+@inject AuthService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Login · DriveNow</PageTitle>
+
+<div class="dn-login">
+    <div class="row g-4 align-items-stretch">
+
+        <div class="col-md-6">
+            <section class="dn-hero">
+                <div>
+                    <span class="dn-logo-mark dn-logo-mark-lg">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                    </span>
+                    <h1 class="mt-4 mb-3">Ready to<br /><span class="dn-lime">drive</span>.</h1>
+                    <p class="mb-0">Manage cars, bookings and rental offices in one place.</p>
+                </div>
+
+                <div class="d-none d-md-block">
+                    <div class="dn-feature"><i class="bi bi-car-front"></i>Fleet management</div>
+                    <div class="dn-feature"><i class="bi bi-calendar-check"></i>Smart bookings</div>
+                    <div class="dn-feature mb-0"><i class="bi bi-geo-alt"></i>Rental locations</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-md-6 d-flex align-items-center">
+            <div class="dn-card dn-login-card w-100">
+                <h2 class="h4 fw-semibold mb-1">Welcome back</h2>
+                <p class="dn-muted mb-4">Sign in to your staff account</p>
+
+                <AppAlert Message="@errorMessage" OnDismiss="ClearError" />
+
+                <EditForm Model="login" OnValidSubmit="HandleLoginAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <div class="dn-field">
+                            <i class="bi bi-person"></i>
+                            <InputText id="username"
+                                       class="form-control"
+                                       autocomplete="username"
+                                       @bind-Value="login.Username" />
+                        </div>
+                        <ValidationMessage For="() => login.Username" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="dn-field">
+                            <i class="bi bi-lock"></i>
+                            <InputText id="password"
+                                       type="@(showPassword ? "text" : "password")"
+                                       class="form-control"
+                                       autocomplete="current-password"
+                                       @bind-Value="login.Password" />
+                            <button type="button"
+                                    class="dn-eye"
+                                    aria-label="@(showPassword ? "Hide password" : "Show password")"
+                                    @onclick="TogglePassword">
+                                <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                        <ValidationMessage For="() => login.Password" />
+                    </div>
+
+                    <button type="submit" class="btn btn-dn w-100" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Login <i class="bi bi-arrow-right ms-1"></i></span>
+                        }
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private LoginModel login = new();
+    private string? errorMessage;
+    private bool isSubmitting;
+    private bool showPassword;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated == true)
+                Nav.NavigateTo("", replace: true);
+        }
+    }
+
+    private async Task HandleLoginAsync()
+    {
+        errorMessage = null;
+        isSubmitting = true;
+
+        var success = await AuthService.LoginAsync(login.Username, login.Password);
+
+        isSubmitting = false;
+
+        if (success)
+            Nav.NavigateTo("", replace: true);
+        else
+            errorMessage = "Invalid username or password.";
+    }
+
+    private void ClearError() => errorMessage = null;
+
+    private void TogglePassword() => showPassword = !showPassword;
+}

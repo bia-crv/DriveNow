@@ -1,0 +1,29 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert alert-@Type d-flex align-items-start justify-content-between gap-2" role="alert">
+        <div>
+            <i class="bi @Icon me-2"></i>@Message
+        </div>
+        @if (Dismissible)
+        {
+            <button type="button" class="btn-close" aria-label="Close" @onclick="Dismiss"></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string Type { get; set; } = "danger";
+    [Parameter] public bool Dismissible { get; set; } = true;
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private string Icon => Type switch
+    {
+        "success" => "bi-check-circle",
+        "warning" => "bi-exclamation-triangle",
+        "info" => "bi-info-circle",
+        _ => "bi-x-circle"
+    };
+
+    private Task Dismiss() => OnDismiss.InvokeAsync();
+}

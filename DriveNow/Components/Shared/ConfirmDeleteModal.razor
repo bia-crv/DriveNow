@@ -1,0 +1,38 @@
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-trash text-danger me-2"></i>@Title
+                    </h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="Cancel" disabled="@IsBusy"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">@Message</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@IsBusy">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="Confirm" disabled="@IsBusy">
+                        @(IsBusy ? "Deleting..." : ConfirmText)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Delete item?";
+    [Parameter] public string Message { get; set; } = "This can't be undone.";
+    [Parameter] public string ConfirmText { get; set; } = "Delete";
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task Confirm() => OnConfirm.InvokeAsync();
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

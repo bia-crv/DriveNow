@@ -1,0 +1,14 @@
+<div class="card h-100 dn-stat @(Dark ? "dn-stat-dark" : "")">
+    <div class="card-body">
+        <i class="bi @Icon dn-stat-icon"></i>
+        <div class="dn-stat-value">@Value</div>
+        <div class="dn-stat-label">@Title</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = "bi-bar-chart";
+    [Parameter] public bool Dark { get; set; }
+}

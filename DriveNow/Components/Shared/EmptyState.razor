@@ -1,0 +1,13 @@
+<div class="text-center py-5 dn-empty">
+    <i class="bi @Icon fs-1 text-muted"></i>
+    <h5 class="mt-3 mb-1">@Title</h5>
+    <p class="text-muted mb-3">@Message</p>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "bi-inbox";
+    [Parameter] public string Title { get; set; } = "Nothing to show";
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

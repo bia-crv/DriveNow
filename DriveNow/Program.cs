@@ -1,13 +1,24 @@
 using DriveNow.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 var apiBaseAddress = new Uri("https://egolance.com/api/");
 builder.Services.AddHttpClient<DriveNow.Services.CarService>(c => c.BaseAddress = apiBaseAddress);
 builder.Services.AddHttpClient<DriveNow.Services.BookingService>(c => c.BaseAddress = apiBaseAddress);
 builder.Services.AddHttpClient<DriveNow.Services.LocationService>(c => c.BaseAddress = apiBaseAddress);
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<DriveNow.Services.DriveNowAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
+    sp.GetRequiredService<DriveNow.Services.DriveNowAuthStateProvider>());
+builder.Services.AddScoped<DriveNow.Services.AuthService>();
 // Add services to the container.
 builder.Services.AddRazorComponents()
+    
     .AddInteractiveServerComponents();
+
+builder.Services.AddScoped<DriveNow.Services.ThemeService>();
 
 var app = builder.Build();
 

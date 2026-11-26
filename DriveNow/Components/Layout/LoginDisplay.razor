@@ -1,0 +1,17 @@
+@inject AuthService AuthService
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <Authorized>
+        <span class="me-3">Hi, @context.User.FindFirst("DisplayName")?.Value</span>
+        <button class="btn btn-sm btn-outline-dark" @onclick="LogoutAsync">Logout</button>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("login", replace: true);
+    }
+}

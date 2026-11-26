@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+@inject ThemeService Theme
+@implements IDisposable
+
+<div class="dn-app @(Theme.IsDark ? "dn-dark" : "")">
+    <header class="dn-topbar">
+        <span class="dn-logo">
+            <span class="dn-logo-mark"><i class="bi bi-lightning-charge-fill"></i></span>
+            DRIVENOW
+        </span>
+        <ThemeToggle />
+    </header>
+
+    <main>
+        @Body
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized() => Theme.OnChange += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Theme.OnChange -= Refresh;
+}

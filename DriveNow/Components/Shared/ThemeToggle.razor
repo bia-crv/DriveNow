@@ -1,0 +1,18 @@
+@inject ThemeService Theme
+@implements IDisposable
+
+<button type="button"
+        class="dn-icon-btn"
+        title="Toggle dark mode"
+        aria-label="Toggle dark mode"
+        @onclick="Theme.Toggle">
+    <i class="bi @(Theme.IsDark ? "bi-sun" : "bi-moon")"></i>
+</button>
+
+@code {
+    protected override void OnInitialized() => Theme.OnChange += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Theme.OnChange -= Refresh;
+}
