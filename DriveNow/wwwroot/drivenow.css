@@ -695,3 +695,63 @@
 .dn-app .modal-dialog-scrollable .modal-body {
     min-height: 0;
 }
+
+/* ----- Bookings page ----- */
+.dn-panel.dn-sticky {
+    position: sticky;
+    top: 1rem;
+    height: auto;
+}
+
+@media (max-width: 991.98px) {
+    .dn-panel.dn-sticky {
+        position: static;
+    }
+}
+
+.dn-booking {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.1rem;
+    flex-wrap: wrap;
+}
+
+.dn-min-0 {
+    min-width: 0;
+}
+
+.dn-booking-dates {
+    font-size: 0.875rem;
+    color: var(--dn-muted);
+    text-align: right;
+    margin-left: auto;
+}
+
+@media (max-width: 575.98px) {
+    .dn-booking-dates {
+        text-align: left;
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+.dn-cost {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--dn-accent-soft);
+    color: var(--dn-accent-text);
+    border-radius: 12px;
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+}
+
+.dn-cost strong {
+    font-size: 1.1rem;
+}
+
+.dn-badge-past {
+    background: var(--dn-border);
+    color: var(--dn-muted);
+}

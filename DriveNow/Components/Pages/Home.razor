@@ -57,8 +57,7 @@ else
                             var active = Fleet.IsBookingActive(booking);
                             <div class="dn-list-item">
                                 <div class="d-flex align-items-center gap-3">
-                                    <span class="dn-initials @(active ? "dn-initials-active" : "")">@Initials(booking.CustomerName)</span>
-                                    <div>
+                                    <InitialsAvatar Name="@booking.CustomerName" Active="active" />                                    <div>
                                         <div class="fw-semibold">@booking.CustomerName.Trim()</div>
                                         <div class="dn-muted small">@CarName(booking.CarId)</div>
                                     </div>
@@ -151,11 +150,7 @@ else
 
     private string CarName(int carId) => Fleet.FindCar(carId)?.DisplayName ?? $"Car #{carId}";
 
-    private static string Initials(string name)
-    {
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Concat(parts.Take(2).Select(p => char.ToUpper(p[0])));
-    }
+    
 
     public void Dispose() => Fleet.OnChange -= HandleFleetChanged;
 }

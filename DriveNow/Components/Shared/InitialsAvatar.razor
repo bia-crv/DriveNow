@@ -1,0 +1,17 @@
+<span class="dn-initials @(Active ? "dn-initials-active" : "")" title="@Name">@Initials</span>
+
+@code {
+    [Parameter] public string Name { get; set; } = string.Empty;
+    [Parameter] public bool Active { get; set; }
+
+    private string Initials
+    {
+        get
+        {
+            var parts = Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length == 0
+                ? "?"
+                : string.Concat(parts.Take(2).Select(p => char.ToUpper(p[0])));
+        }
+    }
+}

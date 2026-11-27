@@ -1,0 +1,407 @@
+@page "/bookings"
+@inject FleetStateService Fleet
+@inject BookingService BookingService
+@implements IDisposable
+
+<PageTitle>Bookings · DriveNow</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="dn-page-title">Bookings</h1>
+        <p class="dn-muted mb-0">@Fleet.ActiveBookingsCount active · @UpcomingCount upcoming</p>
+    </div>
+    <button class="btn btn-dn-outline" title="Refresh" aria-label="Refresh bookings" @onclick="RefreshAsync" disabled="@isRefreshing">
+        <i class="bi bi-arrow-clockwise @(isRefreshing ? "dn-spin" : "")"></i>
+    </button>
+</div>
+
+<AppAlert Message="@successMessage" Type="success" OnDismiss="ClearSuccess" />
+<AppAlert Message="@errorMessage" Type="danger" OnDismiss="ClearError" />
+<AppAlert Message="@Fleet.ErrorMessage" Type="warning" OnDismiss="Fleet.ClearError" />
+
+@if (!Fleet.IsLoaded)
+{
+    <LoadingSpinner Text="Loading bookings..." />
+}
+else
+{
+    <div class="row g-4">
+
+        <!-- New booking form -->
+        <div class="col-lg-4">
+            <div class="dn-card dn-panel dn-sticky">
+                <div class="dn-panel-title"><i class="bi bi-plus-circle me-2"></i>New booking</div>
+
+                <AppAlert Message="@formError" OnDismiss="ClearFormError" />
+
+                <EditForm Model="newBooking" OnValidSubmit="CreateAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label for="customer" class="form-label">Customer name</label>
+                        <InputText id="customer" class="form-control" placeholder="Aoife Murphy"
+                                   @bind-Value="newBooking.CustomerName" />
+                        <ValidationMessage For="() => newBooking.CustomerName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="car" class="form-label">Car</label>
+                        <InputSelect id="car" class="form-select" @bind-Value="newBooking.CarId">
+                            <option value="0">Select a car</option>
+                            @foreach (var car in CarOptions)
+                            {
+                                var reason = CarUnavailableReason(car);
+                                <option value="@car.Id" disabled="@(reason is not null)">
+                                    @car.DisplayName · @($"€{car.DailyRate:0}")/day @(reason is null ? "" : $"({reason})")
+                                </option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => newBooking.CarId" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Pickup location</label>
+                        <InputSelect id="location" class="form-select" @bind-Value="newBooking.LocationId">
+                            <option value="0">Select a location</option>
+                            @foreach (var location in LocationOptions)
+                            {
+                                <option value="@location.Id">@location.BranchName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => newBooking.LocationId" />
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="pickup" class="form-label">Pickup date</label>
+                            <InputDate id="pickup" class="form-control" min="@Today"
+                                       @bind-Value="newBooking.PickupDate" />
+                            <ValidationMessage For="() => newBooking.PickupDate" />
+                        </div>
+                        <div class="col-6">
+                            <label for="return" class="form-label">Return date</label>
+                            <InputDate id="return" class="form-control" min="@Today"
+                                       @bind-Value="newBooking.ReturnDate" />
+                            <ValidationMessage For="() => newBooking.ReturnDate" />
+                        </div>
+                    </div>
+
+                    @if (SelectedCar is not null && Days > 0)
+                    {
+                        <div class="dn-cost mb-3">
+                            <span><i class="bi bi-calculator me-1"></i>@Days @(Days == 1 ? "day" : "days") × @($"€{SelectedCar.DailyRate:0}")</span>
+                            <strong>@($"€{EstimatedCost:0.00}")</strong>
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-dn w-100" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Creating...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-calendar-plus me-1"></i>Create booking</span>
+                        }
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+
+        <!-- Bookings list -->
+        <div class="col-lg-8">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                <div class="flex-grow-1" style="min-width: 220px;">
+                    <SearchBox @bind-Value="searchText" Placeholder="Search customer, car or location" />
+                </div>
+                <div class="dn-chips" role="group" aria-label="Filter by status">
+                    @foreach (var option in statusOptions)
+                    {
+                        <button type="button"
+                                class="dn-chip @(statusFilter == option.Key ? "active" : "")"
+                                @onclick="() => statusFilter = option.Key">
+                            @option.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @{
+                var bookings = FilteredBookings.ToList();
+            }
+
+            @if (Fleet.Bookings.Count == 0)
+            {
+                <div class="dn-card">
+                    <EmptyState Icon="bi-calendar-x"
+                                Title="No bookings yet"
+                                Message="@(Fleet.ErrorMessage is null ? "Create the first booking using the form." : "Bookings couldn't be loaded right now. Try refreshing in a moment.")" />
+                </div>
+            }
+            else if (bookings.Count == 0)
+            {
+                <div class="dn-card">
+                    <EmptyState Icon="bi-search" Title="No bookings match your filters" Message="Try a different search or status.">
+                        <button class="btn btn-dn-outline" @onclick="ClearFilters">Clear filters</button>
+                    </EmptyState>
+                </div>
+            }
+            else
+            {
+                <div class="vstack gap-2">
+                    @foreach (var booking in bookings)
+                    {
+                        var status = GetStatus(booking);
+                        var days = (booking.ReturnDate.Date - booking.PickupDate.Date).Days;
+                        <div class="dn-card dn-booking">
+                            <div class="d-flex align-items-center gap-3 flex-grow-1 dn-min-0">
+                                <InitialsAvatar Name="@booking.CustomerName" Active="@(status.Label == "Active")" />
+                                <div class="dn-min-0">
+                                    <div class="fw-semibold text-truncate">@booking.CustomerName.Trim()</div>
+                                    <div class="dn-muted small text-truncate">
+                                        <i class="bi bi-car-front me-1"></i>@CarName(booking.CarId)
+                                        <span class="mx-1">·</span>
+                                        <i class="bi bi-geo-alt me-1"></i>@LocationName(booking.LocationId)
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="dn-booking-dates">
+                                <div>@booking.PickupDate.ToString("dd MMM yyyy") – @booking.ReturnDate.ToString("dd MMM yyyy")</div>
+                                <div class="small">@days @(days == 1 ? "day" : "days")</div>
+                            </div>
+
+                            <span class="dn-badge @status.CssClass">@status.Label</span>
+
+                            <button class="dn-action dn-action-danger" title="Delete booking"
+                                    aria-label="Delete booking for @booking.CustomerName"
+                                    @onclick="() => AskDelete(booking)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+    </div>
+}
+
+<ConfirmDeleteModal IsOpen="bookingToDelete is not null"
+                    Title="Delete booking?"
+                    Message="@DeleteMessage"
+                    ConfirmText="Delete booking"
+                    IsBusy="isDeleting"
+                    OnConfirm="ConfirmDeleteAsync"
+                    OnCancel="CancelDelete" />
+
+@code {
+    private readonly (string Key, string Label)[] statusOptions =
+    {
+        ("all", "All"),
+        ("active", "Active"),
+        ("upcoming", "Upcoming"),
+        ("past", "Past")
+    };
+
+    private Booking newBooking = CreateEmptyBooking();
+    private bool isSaving;
+    private string? formError;
+
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isRefreshing;
+
+    private string searchText = string.Empty;
+    private string statusFilter = "all";
+
+    private Booking? bookingToDelete;
+    private bool isDeleting;
+
+    private static string Today => DateTime.Today.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fleet.OnChange += HandleFleetChanged;
+        await Fleet.LoadAsync();
+    }
+
+    // ----- Form helpers -----
+
+    private static Booking CreateEmptyBooking() => new()
+    {
+        PickupDate = DateTime.Today,
+        ReturnDate = DateTime.Today.AddDays(1)
+    };
+
+    private IEnumerable<Car> CarOptions => Fleet.Cars
+        .OrderBy(c => c.Make.Trim())
+        .ThenBy(c => c.Model.Trim());
+
+    private IEnumerable<Location> LocationOptions => Fleet.Locations
+        .OrderBy(l => l.BranchName);
+
+    private Car? SelectedCar => Fleet.FindCar(newBooking.CarId);
+
+    private int Days => (newBooking.ReturnDate.Date - newBooking.PickupDate.Date).Days;
+
+    private decimal EstimatedCost => SelectedCar is null || Days <= 0 ? 0 : SelectedCar.DailyRate * Days;
+
+    private string? CarUnavailableReason(Car car)
+    {
+        if (!car.Available)
+            return "unavailable";
+
+        if (IsBookedFor(car.Id, newBooking.PickupDate, newBooking.ReturnDate))
+            return "booked for these dates";
+
+        return null;
+    }
+
+    private bool IsBookedFor(int carId, DateTime pickup, DateTime returnDate) =>
+        returnDate > pickup &&
+        Fleet.Bookings.Any(b => b.CarId == carId && pickup < b.ReturnDate && b.PickupDate < returnDate);
+
+    private async Task CreateAsync()
+    {
+        formError = null;
+        successMessage = null;
+
+        var car = SelectedCar;
+        if (car is not null && CarUnavailableReason(car) is string reason)
+        {
+            formError = $"{car.DisplayName} is {reason}. Choose another car or different dates.";
+            return;
+        }
+
+        isSaving = true;
+        newBooking.CustomerName = newBooking.CustomerName.Trim();
+
+        var result = await BookingService.CreateAsync(newBooking);
+
+        isSaving = false;
+
+        if (!result.Success)
+        {
+            formError = result.ErrorMessage;
+            return;
+        }
+
+        successMessage = $"Booking for {newBooking.CustomerName} was created.";
+        newBooking = CreateEmptyBooking();
+        await Fleet.LoadAsync(force: true);
+    }
+
+    // ----- List helpers -----
+
+    private int UpcomingCount => Fleet.Bookings.Count(b => b.PickupDate > DateTime.Now);
+
+    private IEnumerable<Booking> FilteredBookings
+    {
+        get
+        {
+            var now = DateTime.Now;
+
+            return Fleet.Bookings
+                .Where(MatchesSearch)
+                .Where(b => statusFilter switch
+                {
+                    "active" => Fleet.IsBookingActive(b),
+                    "upcoming" => b.PickupDate > now,
+                    "past" => b.ReturnDate <= now,
+                    _ => true
+                })
+                .OrderBy(b => SortGroup(b, now))
+                .ThenBy(b => b.ReturnDate <= now ? -b.PickupDate.Ticks : b.PickupDate.Ticks);
+        }
+    }
+
+    private int SortGroup(Booking booking, DateTime now) =>
+        Fleet.IsBookingActive(booking) ? 0 : booking.PickupDate > now ? 1 : 2;
+
+    private bool MatchesSearch(Booking booking)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+
+        var term = searchText.Trim();
+        return booking.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               CarName(booking.CarId).Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               LocationName(booking.LocationId).Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private (string Label, string CssClass) GetStatus(Booking booking)
+    {
+        if (Fleet.IsBookingActive(booking))
+            return ("Active", "dn-badge-success");
+
+        if (booking.PickupDate > DateTime.Now)
+            return ("Upcoming", "dn-badge-muted");
+
+        return ("Completed", "dn-badge-past");
+    }
+
+    private string CarName(int carId) => Fleet.FindCar(carId)?.DisplayName ?? $"Car #{carId}";
+
+    private string LocationName(int locationId) => Fleet.FindLocation(locationId)?.BranchName ?? "Unknown location";
+
+    private void ClearFilters()
+    {
+        searchText = string.Empty;
+        statusFilter = "all";
+    }
+
+    // ----- Delete -----
+
+    private string DeleteMessage => bookingToDelete is null
+        ? string.Empty
+        : $"Delete the booking for {bookingToDelete.CustomerName.Trim()} ({CarName(bookingToDelete.CarId)}, " +
+          $"{bookingToDelete.PickupDate:dd MMM} – {bookingToDelete.ReturnDate:dd MMM})? The car becomes available again for these dates.";
+
+    private void AskDelete(Booking booking)
+    {
+        errorMessage = null;
+        successMessage = null;
+        bookingToDelete = booking;
+    }
+
+    private void CancelDelete() => bookingToDelete = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (bookingToDelete is null) return;
+
+        isDeleting = true;
+        var booking = bookingToDelete;
+        var result = await BookingService.DeleteAsync(booking.Id);
+        isDeleting = false;
+        bookingToDelete = null;
+
+        if (result.Success)
+        {
+            successMessage = $"Booking for {booking.CustomerName.Trim()} was deleted.";
+            await Fleet.LoadAsync(force: true);
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage;
+        }
+    }
+
+    // ----- General -----
+
+    private async Task RefreshAsync()
+    {
+        isRefreshing = true;
+        await Fleet.LoadAsync(force: true);
+        isRefreshing = false;
+    }
+
+    private void ClearSuccess() => successMessage = null;
+    private void ClearError() => errorMessage = null;
+    private void ClearFormError() => formError = null;
+
+    private void HandleFleetChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Fleet.OnChange -= HandleFleetChanged;
+}
