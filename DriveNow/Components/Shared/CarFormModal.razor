@@ -1,0 +1,120 @@
+@if (IsOpen && EditingCar is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <EditForm Model="EditingCar" OnValidSubmit="Save">
+                    <DataAnnotationsValidator />
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-car-front me-2"></i>@(IsNew ? "Add car" : "Edit car")
+                        </h5>
+                        <button type="button" class="btn-close" aria-label="Close" @onclick="Cancel" disabled="@IsSaving"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <AppAlert Message="@ErrorMessage" Dismissible="false" />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="reg" class="form-label">Registration number</label>
+                                <InputText id="reg" class="form-control" placeholder="241-D-12345"
+                                           @bind-Value="EditingCar.RegistrationNumber" />
+                                <ValidationMessage For="() => EditingCar.RegistrationNumber" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="fuel" class="form-label">Fuel type</label>
+                                <InputSelect id="fuel" class="form-select" @bind-Value="EditingCar.FuelType">
+                                    <option value="">Select fuel type</option>
+                                    @foreach (var fuel in FuelTypes)
+                                    {
+                                        <option value="@fuel">@fuel</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="() => EditingCar.FuelType" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="make" class="form-label">Make</label>
+                                <InputText id="make" class="form-control" placeholder="Toyota"
+                                           @bind-Value="EditingCar.Make" />
+                                <ValidationMessage For="() => EditingCar.Make" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="model" class="form-label">Model</label>
+                                <InputText id="model" class="form-control" placeholder="Corolla"
+                                           @bind-Value="EditingCar.Model" />
+                                <ValidationMessage For="() => EditingCar.Model" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="year" class="form-label">Year</label>
+                                <InputNumber id="year" class="form-control" @bind-Value="EditingCar.Year" />
+                                <ValidationMessage For="() => EditingCar.Year" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="rate" class="form-label">Daily rate (€)</label>
+                                <InputNumber id="rate" class="form-control" step="0.01" @bind-Value="EditingCar.DailyRate" />
+                                <ValidationMessage For="() => EditingCar.DailyRate" />
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox id="available" class="form-check-input" @bind-Value="EditingCar.Available" />
+                                    <label class="form-check-label" for="available">Available for rental</label>
+                                </div>
+                                <div class="form-text">
+                                    Turn this off for cars in maintenance. Cars with an active booking are shown as unavailable automatically.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-dn-outline" @onclick="Cancel" disabled="@IsSaving">Cancel</button>
+                        <button type="submit" class="btn btn-dn" disabled="@IsSaving">
+                            @if (IsSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-check-lg me-1"></i>@(IsNew ? "Add car" : "Save changes")</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public Car? EditingCar { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback<Car> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private static readonly string[] BaseFuelTypes = { "Petrol", "Diesel", "Hybrid", "Electric" };
+
+    private bool IsNew => EditingCar?.Id == 0;
+
+    private IEnumerable<string> FuelTypes =>
+        EditingCar is not null &&
+        !string.IsNullOrWhiteSpace(EditingCar.FuelType) &&
+        !BaseFuelTypes.Contains(EditingCar.FuelType)
+            ? BaseFuelTypes.Append(EditingCar.FuelType)
+            : BaseFuelTypes;
+
+    private Task Save() => OnSave.InvokeAsync(EditingCar);
+
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

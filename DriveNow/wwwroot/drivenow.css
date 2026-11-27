@@ -509,3 +509,172 @@
 .dn-dark .text-muted {
     color: var(--dn-muted) !important;
 }
+
+/* ----- Filters and view toggle ----- */
+.dn-chips {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.dn-chip {
+    border: 1px solid var(--dn-border);
+    background: var(--dn-card);
+    color: var(--dn-muted);
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.875rem;
+}
+
+.dn-chip:hover {
+    color: var(--dn-text);
+}
+
+.dn-chip.active {
+    background: var(--dn-ink);
+    border-color: var(--dn-ink);
+    color: var(--dn-accent);
+}
+
+.dn-dark .dn-chip.active {
+    background: var(--dn-accent);
+    border-color: var(--dn-accent);
+    color: var(--dn-ink);
+}
+
+.dn-app .dn-select-sm {
+    width: auto;
+    min-height: 38px;
+    border-radius: 999px;
+    font-size: 0.875rem;
+}
+
+.dn-view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--dn-border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--dn-card);
+}
+
+.dn-view-toggle button {
+    border: 0;
+    background: transparent;
+    color: var(--dn-muted);
+    padding: 0.4rem 0.85rem;
+}
+
+.dn-view-toggle button.active {
+    background: var(--dn-accent-soft);
+    color: var(--dn-accent-text);
+}
+
+/* ----- Car cards ----- */
+.dn-car-card {
+    padding: 1.1rem;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.dn-car-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--dn-accent-text);
+}
+
+.dn-car-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--dn-accent-soft);
+    color: var(--dn-accent-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.dn-price {
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.dn-action {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--dn-border);
+    background: transparent;
+    color: var(--dn-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dn-action:hover {
+    color: var(--dn-text);
+    border-color: var(--dn-text);
+}
+
+.dn-action-danger:hover {
+    color: var(--dn-danger);
+    border-color: var(--dn-danger);
+}
+
+/* ----- Tables ----- */
+.dn-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--dn-text);
+    --bs-table-border-color: var(--dn-border);
+    --bs-table-hover-bg: var(--dn-accent-soft);
+    --bs-table-hover-color: var(--dn-text);
+}
+
+.dn-table th {
+    color: var(--dn-muted);
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0.85rem 1rem;
+}
+
+.dn-table td {
+    padding: 0.75rem 1rem;
+}
+
+/* ----- Search box ----- */
+.dn-search .input-group-text,
+.dn-search .btn {
+    background: var(--dn-card);
+    border-color: var(--dn-border);
+    color: var(--dn-muted);
+}
+
+/* ----- Modals and form extras ----- */
+.dn-app .modal-content {
+    background: var(--dn-card);
+    color: var(--dn-text);
+    border: 1px solid var(--dn-border);
+    border-radius: 20px;
+}
+
+.dn-app .modal-header,
+.dn-app .modal-footer {
+    border-color: var(--dn-border);
+}
+
+.dn-app .form-check-input:checked {
+    background-color: var(--dn-accent-text);
+    border-color: var(--dn-accent-text);
+}
+
+.dn-app .form-text {
+    color: var(--dn-muted);
+}
+
+.dn-app .alert-success {
+    background: var(--dn-accent-soft);
+    color: var(--dn-accent-text);
+}
+
+.dn-app .btn-danger,
+.dn-app .modal .btn-outline-secondary {
+    border-radius: 999px;
+}

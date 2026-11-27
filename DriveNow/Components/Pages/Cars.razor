@@ -1,0 +1,389 @@
+@page "/cars"
+@inject FleetStateService Fleet
+@inject CarService CarService
+@implements IDisposable
+
+<PageTitle>Cars · DriveNow</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="dn-page-title">Cars</h1>
+        <p class="dn-muted mb-0">@Fleet.Cars.Count vehicles in the fleet</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-dn-outline" title="Refresh" aria-label="Refresh cars" @onclick="RefreshAsync" disabled="@isRefreshing">
+            <i class="bi bi-arrow-clockwise @(isRefreshing ? "dn-spin" : "")"></i>
+        </button>
+        <button class="btn btn-dn" @onclick="OpenAdd">
+            <i class="bi bi-plus-lg me-1"></i> Add car
+        </button>
+    </div>
+</div>
+
+<AppAlert Message="@successMessage" Type="success" OnDismiss="ClearSuccess" />
+<AppAlert Message="@errorMessage" Type="danger" OnDismiss="ClearError" />
+<AppAlert Message="@Fleet.ErrorMessage" Type="warning" OnDismiss="Fleet.ClearError" />
+
+<div class="row g-2 align-items-center mb-3">
+    <div class="col-lg-5">
+        <SearchBox @bind-Value="searchText" Placeholder="Search make, model or registration" />
+    </div>
+    <div class="col-lg-7 d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
+        <div class="dn-chips" role="group" aria-label="Filter by availability">
+            @foreach (var option in availabilityOptions)
+            {
+                <button type="button"
+                        class="dn-chip @(availabilityFilter == option.Key ? "active" : "")"
+                        @onclick="() => availabilityFilter = option.Key">
+                    @option.Label
+                </button>
+            }
+        </div>
+
+        <select class="form-select dn-select-sm" aria-label="Filter by fuel type" @bind="fuelFilter">
+            <option value="">All fuel types</option>
+            @foreach (var fuel in FuelOptions)
+            {
+                <option value="@fuel">@fuel</option>
+            }
+        </select>
+
+        <div class="dn-view-toggle" role="group" aria-label="View mode">
+            <button type="button" class="@(showTable ? "" : "active")" title="Card view" aria-label="Card view"
+                    @onclick="() => showTable = false">
+                <i class="bi bi-grid-3x3-gap"></i>
+            </button>
+            <button type="button" class="@(showTable ? "active" : "")" title="Table view" aria-label="Table view"
+                    @onclick="() => showTable = true">
+                <i class="bi bi-list-ul"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (!Fleet.IsLoaded)
+{
+    <LoadingSpinner Text="Loading cars..." />
+}
+else if (Fleet.Cars.Count == 0)
+{
+    <div class="dn-card">
+        <EmptyState Icon="bi-car-front"
+                    Title="No cars to show"
+                    Message="@(Fleet.ErrorMessage is null ? "Add your first car to get started." : "Cars couldn't be loaded right now. Try refreshing in a moment.")">
+            <button class="btn btn-dn" @onclick="OpenAdd"><i class="bi bi-plus-lg me-1"></i> Add car</button>
+        </EmptyState>
+    </div>
+}
+else
+{
+    var cars = FilteredCars.ToList();
+
+    if (cars.Count == 0)
+    {
+        <div class="dn-card">
+            <EmptyState Icon="bi-search" Title="No cars match your filters" Message="Try a different search or clear the filters.">
+                <button class="btn btn-dn-outline" @onclick="ClearFilters">Clear filters</button>
+            </EmptyState>
+        </div>
+    }
+    else if (!showTable)
+    {
+        <div class="row g-3">
+            @foreach (var car in cars)
+            {
+                var status = GetStatus(car);
+                <div class="col-sm-6 col-lg-4 col-xl-3">
+                    <div class="dn-card dn-car-card h-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="dn-car-icon"><i class="bi bi-car-front"></i></span>
+                            <span class="dn-badge @status.CssClass">@status.Label</span>
+                        </div>
+                        <div class="fw-semibold mt-3">@car.DisplayName</div>
+                        <div class="dn-muted small">@car.RegistrationNumber.Trim()</div>
+                        <div class="dn-muted small">@car.Year · @car.FuelType.Trim()</div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <span class="dn-price">@($"€{car.DailyRate:0}")<span class="dn-muted small fw-normal">/day</span></span>
+                            <div class="d-flex gap-1">
+                                <button class="dn-action" title="Edit" aria-label="Edit @car.DisplayName" @onclick="() => OpenEdit(car)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                @if (isAdmin)
+                                {
+                                    <button class="dn-action dn-action-danger" title="Delete" aria-label="Delete @car.DisplayName" @onclick="() => AskDelete(car)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="dn-card p-0 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover dn-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Registration</th>
+                            <th>Car</th>
+                            <th>Year</th>
+                            <th>Fuel</th>
+                            <th>Rate</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var car in cars)
+                        {
+                            var status = GetStatus(car);
+                            <tr>
+                                <td>@car.RegistrationNumber.Trim()</td>
+                                <td class="fw-semibold">@car.DisplayName</td>
+                                <td>@car.Year</td>
+                                <td>@car.FuelType.Trim()</td>
+                                <td>@($"€{car.DailyRate:0}")</td>
+                                <td><span class="dn-badge @status.CssClass">@status.Label</span></td>
+                                <td class="text-end">
+                                    <button class="dn-action" title="Edit" aria-label="Edit @car.DisplayName" @onclick="() => OpenEdit(car)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    @if (isAdmin)
+                                    {
+                                        <button class="dn-action dn-action-danger" title="Delete" aria-label="Delete @car.DisplayName" @onclick="() => AskDelete(car)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+<CarFormModal IsOpen="editingCar is not null"
+              EditingCar="editingCar"
+              IsSaving="isSaving"
+              ErrorMessage="@formError"
+              OnSave="SaveAsync"
+              OnCancel="CloseForm" />
+
+<ConfirmDeleteModal IsOpen="carToDelete is not null"
+                    Title="Delete car?"
+                    Message="@DeleteMessage"
+                    IsBusy="isDeleting"
+                    OnConfirm="ConfirmDeleteAsync"
+                    OnCancel="CancelDelete" />
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private readonly (string Key, string Label)[] availabilityOptions =
+    {
+        ("all", "All"),
+        ("available", "Available"),
+        ("unavailable", "Unavailable")
+    };
+
+    private bool isAdmin;
+    private bool isRefreshing;
+    private bool showTable;
+
+    private string searchText = string.Empty;
+    private string availabilityFilter = "all";
+    private string fuelFilter = string.Empty;
+
+    private string? successMessage;
+    private string? errorMessage;
+
+    private Car? editingCar;
+    private bool isSaving;
+    private string? formError;
+
+    private Car? carToDelete;
+    private bool isDeleting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fleet.OnChange += HandleFleetChanged;
+
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            isAdmin = state.User.IsInRole("Admin");
+        }
+
+        await Fleet.LoadAsync();
+    }
+
+    // ----- Filtering -----
+
+    private IEnumerable<string> FuelOptions => Fleet.Cars
+        .Select(c => c.FuelType.Trim())
+        .Where(f => f.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(f => f);
+
+    private IEnumerable<Car> FilteredCars => Fleet.Cars
+        .Where(MatchesSearch)
+        .Where(c => availabilityFilter switch
+        {
+            "available" => Fleet.IsCarAvailable(c),
+            "unavailable" => !Fleet.IsCarAvailable(c),
+            _ => true
+        })
+        .Where(c => fuelFilter.Length == 0 ||
+                    c.FuelType.Trim().Equals(fuelFilter, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(c => c.Make.Trim())
+        .ThenBy(c => c.Model.Trim());
+
+    private bool MatchesSearch(Car car)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+
+        var term = searchText.Trim();
+        return car.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               car.RegistrationNumber.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ClearFilters()
+    {
+        searchText = string.Empty;
+        availabilityFilter = "all";
+        fuelFilter = string.Empty;
+    }
+
+    private (string Label, string CssClass) GetStatus(Car car)
+    {
+        if (Fleet.IsCarAvailable(car))
+            return ("Available", "dn-badge-success");
+
+        if (Fleet.Bookings.Any(b => b.CarId == car.Id && Fleet.IsBookingActive(b)))
+            return ("Booked", "dn-badge-danger");
+
+        return ("Unavailable", "dn-badge-muted");
+    }
+
+    // ----- Add / edit -----
+
+    private void OpenAdd()
+    {
+        formError = null;
+        editingCar = new Car();
+    }
+
+    private void OpenEdit(Car car)
+    {
+        formError = null;
+        editingCar = Clone(car);
+    }
+
+    private void CloseForm() => editingCar = null;
+
+    private async Task SaveAsync(Car car)
+    {
+        isSaving = true;
+        formError = null;
+
+        car.RegistrationNumber = car.RegistrationNumber.Trim();
+        car.Make = car.Make.Trim();
+        car.Model = car.Model.Trim();
+
+        var isNew = car.Id == 0;
+        var result = isNew
+            ? await CarService.CreateAsync(car)
+            : await CarService.UpdateAsync(car);
+
+        isSaving = false;
+
+        if (!result.Success)
+        {
+            formError = result.ErrorMessage;
+            return;
+        }
+
+        editingCar = null;
+        successMessage = isNew ? $"{car.DisplayName} was added." : $"{car.DisplayName} was updated.";
+        await Fleet.LoadAsync(force: true);
+    }
+
+    // ----- Delete -----
+
+    private string DeleteMessage => carToDelete is null
+        ? string.Empty
+        : $"Are you sure you want to delete {carToDelete.DisplayName} ({carToDelete.RegistrationNumber.Trim()})? This can't be undone.";
+
+    private void AskDelete(Car car)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (Fleet.Bookings.Any(b => b.CarId == car.Id && b.ReturnDate > DateTime.Now))
+        {
+            errorMessage = $"{car.DisplayName} has active or upcoming bookings and can't be deleted.";
+            return;
+        }
+
+        carToDelete = car;
+    }
+
+    private void CancelDelete() => carToDelete = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (carToDelete is null) return;
+
+        isDeleting = true;
+        var car = carToDelete;
+        var result = await CarService.DeleteAsync(car.Id);
+        isDeleting = false;
+        carToDelete = null;
+
+        if (result.Success)
+        {
+            successMessage = $"{car.DisplayName} was deleted.";
+            await Fleet.LoadAsync(force: true);
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage;
+        }
+    }
+
+    // ----- Helpers -----
+
+    private async Task RefreshAsync()
+    {
+        isRefreshing = true;
+        await Fleet.LoadAsync(force: true);
+        isRefreshing = false;
+    }
+
+    private void ClearSuccess() => successMessage = null;
+
+    private void ClearError() => errorMessage = null;
+
+    private void HandleFleetChanged() => InvokeAsync(StateHasChanged);
+
+    private static Car Clone(Car car) => new()
+    {
+        Id = car.Id,
+        RegistrationNumber = car.RegistrationNumber.Trim(),
+        Make = car.Make.Trim(),
+        Model = car.Model.Trim(),
+        Year = car.Year,
+        DailyRate = car.DailyRate,
+        Available = car.Available,
+        FuelType = car.FuelType.Trim()
+    };
+
+    public void Dispose() => Fleet.OnChange -= HandleFleetChanged;
+}
