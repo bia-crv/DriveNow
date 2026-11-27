@@ -678,3 +678,20 @@
 .dn-app .modal .btn-outline-secondary {
     border-radius: 999px;
 }
+
+/* ----- Placeholders and scrollable modals ----- */
+.dn-app .form-control::placeholder {
+    color: var(--dn-muted);
+    opacity: 0.55;
+}
+
+.dn-app .modal-dialog-scrollable .modal-content > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dn-app .modal-dialog-scrollable .modal-body {
+    min-height: 0;
+}

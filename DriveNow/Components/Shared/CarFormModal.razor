@@ -1,8 +1,7 @@
 @if (IsOpen && EditingCar is not null)
 {
     <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">            <div class="modal-content">
                 <EditForm Model="EditingCar" OnValidSubmit="Save">
                     <DataAnnotationsValidator />
 
