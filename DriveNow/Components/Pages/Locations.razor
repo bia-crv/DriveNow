@@ -1,0 +1,256 @@
+@page "/locations"
+@page "/locations/{Id:int}"
+@inject FleetStateService Fleet
+@inject LocationService LocationService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Locations · DriveNow</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="dn-page-title">Locations</h1>
+        <p class="dn-muted mb-0">@Fleet.Locations.Count rental offices across Ireland</p>
+    </div>
+    <span class="dn-badge dn-badge-muted"><i class="bi bi-eye me-1"></i>Read-only</span>
+</div>
+
+<AppAlert Message="@Fleet.ErrorMessage" Type="warning" OnDismiss="Fleet.ClearError" />
+
+@if (!Fleet.IsLoaded)
+{
+    <LoadingSpinner Text="Loading locations..." />
+}
+else if (Fleet.Locations.Count == 0)
+{
+    <div class="dn-card">
+        <EmptyState Icon="bi-geo-alt"
+                    Title="No locations to show"
+                    Message="@(Fleet.ErrorMessage is null ? "There are no rental offices yet." : "Locations couldn't be loaded right now. Try again in a moment.")" />
+    </div>
+}
+else
+{
+    <div class="row g-4">
+
+        <!-- List -->
+        <div class="col-lg-7 order-lg-first @(Id is null ? "order-first" : "order-last")">
+            <div class="mb-3">
+                <SearchBox @bind-Value="searchText" Placeholder="Search by branch, city or county" />
+            </div>
+
+            @{
+                var locations = FilteredLocations.ToList();
+            }
+
+            @if (locations.Count == 0)
+            {
+                <div class="dn-card">
+                    <EmptyState Icon="bi-search" Title="No locations match your search" Message="Try another name, city or county.">
+                        <button class="btn btn-dn-outline" @onclick="ClearSearch">Clear search</button>
+                    </EmptyState>
+                </div>
+            }
+            else
+            {
+                <div class="vstack gap-2">
+                    @foreach (var location in locations)
+                    {
+                        <button type="button"
+                                class="dn-card dn-location @(location.Id == Id ? "active" : "")"
+                                aria-label="View details for @location.BranchName"
+                                @onclick="() => Select(location.Id)">
+                            <span class="dn-location-icon">
+                                <i class="bi @(IsAirport(location) ? "bi-airplane" : "bi-building")"></i>
+                            </span>
+                            <span class="flex-grow-1 text-start dn-min-0">
+                                <span class="d-block fw-semibold text-truncate">@location.BranchName</span>
+                                <span class="d-block dn-muted small">@location.City, Co. @location.County</span>
+                            </span>
+                            <i class="bi bi-chevron-right dn-muted"></i>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Details -->
+        <div class="col-lg-5 order-lg-last @(Id is null ? "order-last" : "order-first")">
+            <div class="dn-location-details">
+                @if (Id is null)
+                {
+                    <div class="text-center py-4">
+                        <span class="dn-details-icon"><i class="bi bi-geo-alt"></i></span>
+                        <p class="dn-details-muted mt-3 mb-0">Select a location to see its details.</p>
+                    </div>
+                }
+                else if (isLoadingDetails)
+                {
+                    <div class="d-flex align-items-center justify-content-center gap-2 py-5 dn-details-muted">
+                        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                        <span>Loading details...</span>
+                    </div>
+                }
+                else if (detailsError is not null)
+                {
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="dn-details-icon"><i class="bi bi-exclamation-triangle"></i></span>
+                        <button class="dn-icon-btn" aria-label="Close details" @onclick="CloseDetails"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <p class="mb-3">@detailsError</p>
+                    <button class="btn btn-dn" @onclick="RetryDetailsAsync"><i class="bi bi-arrow-clockwise me-1"></i>Try again</button>
+                }
+                else if (selected is not null)
+                {
+                    var branchBookings = Fleet.Bookings.Where(b => b.LocationId == selected.Id).ToList();
+                    var now = DateTime.Now;
+                    var activeHere = branchBookings.Count(Fleet.IsBookingActive);
+                    var upcoming = branchBookings.Where(b => b.PickupDate > now).OrderBy(b => b.PickupDate).ToList();
+
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="dn-details-icon">
+                            <i class="bi @(IsAirport(selected) ? "bi-airplane" : "bi-building")"></i>
+                        </span>
+                        <button class="dn-icon-btn" aria-label="Close details" @onclick="CloseDetails"><i class="bi bi-x-lg"></i></button>
+                    </div>
+
+                    <h2 class="h4 fw-semibold mt-3 mb-1 text-white">@selected.BranchName</h2>
+                    <p class="dn-details-muted mb-4">@(IsAirport(selected) ? "Airport rental desk" : "City rental office")</p>
+
+                    <dl class="dn-details-list">
+                        <dt><i class="bi bi-hash"></i>ID</dt>
+                        <dd>@selected.Id</dd>
+                        <dt><i class="bi bi-geo-alt"></i>City</dt>
+                        <dd>@selected.City</dd>
+                        <dt><i class="bi bi-map"></i>County</dt>
+                        <dd>Co. @selected.County</dd>
+                    </dl>
+
+                    <div class="row g-2 mt-3">
+                        <div class="col-6">
+                            <div class="dn-details-stat">
+                                <div class="value">@activeHere</div>
+                                <div class="label">Active rentals</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="dn-details-stat">
+                                <div class="value">@upcoming.Count</div>
+                                <div class="label">Upcoming pickups</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (upcoming.Count > 0)
+                    {
+                        <div class="mt-4">
+                            <div class="small dn-details-muted mb-1">Next pickups</div>
+                            @foreach (var booking in upcoming.Take(3))
+                            {
+                                <div class="dn-details-pickup">
+                                    <span class="text-truncate">@booking.CustomerName.Trim() · @CarName(booking.CarId)</span>
+                                    <span class="dn-details-muted text-nowrap">@booking.PickupDate.ToString("dd MMM")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <a class="btn btn-dn w-100 mt-4"
+                       href="@MapsUrl(selected)"
+                       target="_blank"
+                       rel="noopener">
+                        <i class="bi bi-map me-1"></i>Open in Google Maps
+                    </a>
+                }
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string searchText = string.Empty;
+
+    private Location? selected;
+    private bool isLoadingDetails;
+    private string? detailsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fleet.OnChange += HandleFleetChanged;
+        await Fleet.LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is null)
+        {
+            selected = null;
+            detailsError = null;
+            return;
+        }
+
+        if (selected?.Id == Id) return;
+
+        await LoadDetailsAsync(Id.Value);
+    }
+
+    private async Task LoadDetailsAsync(int id)
+    {
+        isLoadingDetails = true;
+        detailsError = null;
+
+        var result = await LocationService.GetByIdAsync(id);
+
+        isLoadingDetails = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            selected = result.Data;
+        }
+        else
+        {
+            selected = null;
+            detailsError = result.StatusCode == 404
+                ? "This location doesn't exist."
+                : result.ErrorMessage;
+        }
+    }
+
+    private Task RetryDetailsAsync() => Id is null ? Task.CompletedTask : LoadDetailsAsync(Id.Value);
+
+    private IEnumerable<Location> FilteredLocations => Fleet.Locations
+        .Where(MatchesSearch)
+        .OrderBy(l => l.BranchName);
+
+    private bool MatchesSearch(Location location)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+
+        var term = searchText.Trim();
+        return location.BranchName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               location.City.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+               location.County.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAirport(Location location) =>
+        location.BranchName.Contains("Airport", StringComparison.OrdinalIgnoreCase);
+
+    private string CarName(int carId) => Fleet.FindCar(carId)?.DisplayName ?? $"Car #{carId}";
+
+    private static string MapsUrl(Location location) =>
+        "https://www.google.com/maps/search/?api=1&query=" +
+        Uri.EscapeDataString($"DriveNow {location.BranchName}, {location.City}, Ireland");
+
+    private void Select(int id) => Nav.NavigateTo($"locations/{id}");
+
+    private void CloseDetails() => Nav.NavigateTo("locations");
+
+    private void ClearSearch() => searchText = string.Empty;
+
+    private void HandleFleetChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Fleet.OnChange -= HandleFleetChanged;
+}
